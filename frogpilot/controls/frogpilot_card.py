@@ -42,6 +42,10 @@ class FrogPilotCard:
       handle_experimental_mode(self.car.frogpilot_toggles.conditional_experimental_mode)
     elif self.car.frogpilot_toggles.force_coast_via_distance:
       self.force_coast = not self.force_coast
+    elif self.car.frogpilot_toggles.force_disable_via_distance:
+      params_memory.put_bool("ForceOffroad", not params_memory.get_bool("ForceOffroad"))
+      params_memory.put_bool("ForceOnroad", False)
+      params_memory.put_bool("FrogPilotTogglesUpdated", True)
     elif self.car.frogpilot_toggles.pause_lateral_via_distance:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance:
@@ -54,6 +58,10 @@ class FrogPilotCard:
       handle_experimental_mode(self.car.frogpilot_toggles.conditional_experimental_mode)
     elif self.car.frogpilot_toggles.force_coast_via_distance_long:
       self.force_coast = not self.force_coast
+    elif self.car.frogpilot_toggles.force_disable_via_distance_long:
+      params_memory.put_bool("ForceOffroad", not params_memory.get_bool("ForceOffroad"))
+      params_memory.put_bool("ForceOnroad", False)
+      params_memory.put_bool("FrogPilotTogglesUpdated", True)
     elif self.car.frogpilot_toggles.pause_lateral_via_distance_long:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance_long:
@@ -68,6 +76,10 @@ class FrogPilotCard:
       handle_experimental_mode(self.car.frogpilot_toggles.conditional_experimental_mode)
     elif self.car.frogpilot_toggles.force_coast_via_distance_very_long:
       self.force_coast = not self.force_coast
+    elif self.car.frogpilot_toggles.force_disable_via_distance_very_long:
+      params_memory.put_bool("ForceOffroad", not params_memory.get_bool("ForceOffroad"))
+      params_memory.put_bool("ForceOnroad", False)
+      params_memory.put_bool("FrogPilotTogglesUpdated", True)
     elif self.car.frogpilot_toggles.pause_lateral_via_distance_very_long:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance_very_long:

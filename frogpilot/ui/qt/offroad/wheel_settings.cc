@@ -20,7 +20,8 @@ FrogPilotWheelPanel::FrogPilotWheelPanel(FrogPilotSettingsWindow *parent) : Frog
   for (const auto &[param, title, desc, icon] : wheelToggles) {
     QMap<int, QString> functionsMap {
       {0, tr("No Action")},
-      {3, tr("Pause Steering")}
+      {3, tr("Pause Steering")},
+      {7, tr("Force Disable openpilot")}
     };
 
     QMap<int, QString> longitudinalFunctionsMap {
