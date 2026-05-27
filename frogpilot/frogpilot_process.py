@@ -11,11 +11,60 @@ from openpilot.frogpilot.assets.model_manager import MODEL_DOWNLOAD_ALL_PARAM, M
 from openpilot.frogpilot.assets.theme_manager import THEME_COMPONENT_PARAMS, ThemeManager
 from openpilot.frogpilot.common.frogpilot_functions import backup_toggles
 from openpilot.frogpilot.common.frogpilot_utilities import capture_report, flash_panda, is_url_pingable, lock_doors, run_thread_with_lock, update_maps
-from openpilot.frogpilot.common.frogpilot_variables import ERROR_LOGS_PATH, FrogPilotVariables, get_frogpilot_toggles, params_cache, params_memory
+from openpilot.frogpilot.common.frogpilot_variables import ERROR_LOGS_PATH, FrogPilotVariables, get_frogpilot_toggles, params, params_cache, params_memory
 from openpilot.frogpilot.controls.frogpilot_planner import FrogPilotPlanner
 from openpilot.frogpilot.system.frogpilot_tracking import FrogPilotTracking
 
 ASSET_CHECK_RATE = (1 / DT_MDL)
+
+RESTART_STAGE_DELAY = 1.5
+RESTART_REQUEST_PARAM = "RestartOpenpilotRequested"
+
+
+class RestartSequencer:
+  STAGE_IDLE = 0
+  STAGE_OFFROAD = 1
+  STAGE_ONROAD = 2
+
+  def __init__(self):
+    self.stage = self.STAGE_IDLE
+    self.stage_started_at = 0.0
+
+  def _enter_stage(self, stage):
+    self.stage = stage
+    self.stage_started_at = time.monotonic()
+
+  def update(self):
+    if self.stage == self.STAGE_IDLE:
+      if not params_memory.get_bool(RESTART_REQUEST_PARAM):
+        return
+      params_memory.put_bool("ForceOffroad", True)
+      params_memory.put_bool("ForceOnroad", False)
+      params_memory.put_bool("FrogPilotTogglesUpdated", True)
+      self._enter_stage(self.STAGE_OFFROAD)
+      return
+
+    elapsed = time.monotonic() - self.stage_started_at
+
+    if self.stage == self.STAGE_OFFROAD and elapsed >= RESTART_STAGE_DELAY:
+      car_params = params.get("CarParamsPersistent")
+      frogpilot_car_params = params.get("FrogPilotCarParamsPersistent")
+      if car_params is not None:
+        params.put_nonblocking("CarParams", car_params)
+      if frogpilot_car_params is not None:
+        params.put_nonblocking("FrogPilotCarParams", frogpilot_car_params)
+      params_memory.put_bool("ForceOffroad", False)
+      params_memory.put_bool("ForceOnroad", True)
+      params_memory.put_bool("FrogPilotTogglesUpdated", True)
+      self._enter_stage(self.STAGE_ONROAD)
+      return
+
+    if self.stage == self.STAGE_ONROAD and elapsed >= RESTART_STAGE_DELAY:
+      params_memory.put_bool("ForceOffroad", False)
+      params_memory.put_bool("ForceOnroad", False)
+      params_memory.put_bool("FrogPilotTogglesUpdated", True)
+      params_memory.put_bool(RESTART_REQUEST_PARAM, False)
+      self.stage = self.STAGE_IDLE
 
 def assets_checks(model_manager, theme_manager, frogpilot_toggles):
   if params_memory.get_bool(MODEL_DOWNLOAD_ALL_PARAM):
@@ -65,6 +114,9 @@ def frogpilot_thread():
   frogpilot_variables = FrogPilotVariables()
   model_manager = ModelManager()
   theme_manager = ThemeManager()
+  restart_sequencer = RestartSequencer()
+
+  params_memory.put_bool(RESTART_REQUEST_PARAM, False)
 
   toggles_last_updated = datetime.datetime.now(datetime.UTC)
 
@@ -82,6 +134,8 @@ def frogpilot_thread():
 
   while True:
     sm.update()
+
+    restart_sequencer.update()
 
     now = datetime.datetime.now(datetime.UTC)
 

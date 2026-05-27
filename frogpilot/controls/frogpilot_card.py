@@ -37,6 +37,13 @@ class FrogPilotCard:
 
     self.error_log = ERROR_LOGS_PATH / "error.txt"
 
+  def request_restart_openpilot(self):
+    if params_memory.get_bool("ForceOnroad"):
+      return
+    if params_memory.get_bool("RestartOpenpilotRequested"):
+      return
+    params_memory.put_bool("RestartOpenpilotRequested", True)
+
   def update_distance_button(self, sm):
     if sm["carControl"].longActive and self.car.frogpilot_toggles.experimental_mode_via_distance:
       handle_experimental_mode(self.car.frogpilot_toggles.conditional_experimental_mode)
@@ -46,6 +53,8 @@ class FrogPilotCard:
       params_memory.put_bool("ForceOffroad", not params_memory.get_bool("ForceOffroad"))
       params_memory.put_bool("ForceOnroad", False)
       params_memory.put_bool("FrogPilotTogglesUpdated", True)
+    elif self.car.frogpilot_toggles.restart_openpilot_via_distance:
+      self.request_restart_openpilot()
     elif self.car.frogpilot_toggles.pause_lateral_via_distance:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance:
@@ -62,6 +71,8 @@ class FrogPilotCard:
       params_memory.put_bool("ForceOffroad", not params_memory.get_bool("ForceOffroad"))
       params_memory.put_bool("ForceOnroad", False)
       params_memory.put_bool("FrogPilotTogglesUpdated", True)
+    elif self.car.frogpilot_toggles.restart_openpilot_via_distance_long:
+      self.request_restart_openpilot()
     elif self.car.frogpilot_toggles.pause_lateral_via_distance_long:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance_long:
@@ -80,6 +91,8 @@ class FrogPilotCard:
       params_memory.put_bool("ForceOffroad", not params_memory.get_bool("ForceOffroad"))
       params_memory.put_bool("ForceOnroad", False)
       params_memory.put_bool("FrogPilotTogglesUpdated", True)
+    elif self.car.frogpilot_toggles.restart_openpilot_via_distance_very_long:
+      self.request_restart_openpilot()
     elif self.car.frogpilot_toggles.pause_lateral_via_distance_very_long:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance_very_long:
