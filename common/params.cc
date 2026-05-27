@@ -477,6 +477,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"RelaxedJerkSpeed", PERSISTENT},
     {"RelaxedJerkSpeedDecrease", PERSISTENT},
     {"RelaxedPersonalityProfile", PERSISTENT},
+    {"RestartOpenpilotRequested", CLEAR_ON_MANAGER_START},
     {"ReverseCruise", PERSISTENT},
     {"RoadEdgesWidth", PERSISTENT},
     {"RoadName", CLEAR_ON_MANAGER_START},
