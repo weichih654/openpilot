@@ -4,6 +4,7 @@ from openpilot.selfdrive.controls.lib.drive_helpers import CRUISE_LONG_PRESS
 from openpilot.selfdrive.controls.lib.events import ET
 
 from openpilot.frogpilot.common.frogpilot_variables import ERROR_LOGS_PATH, GearShifter, NON_DRIVING_GEARS, params, params_memory
+from openpilot.frogpilot.controls.lib.drift_debug_dump import trigger_drift_debug_dump
 
 ButtonType = car.CarState.ButtonEvent.Type
 FrogPilotButtonType = custom.FrogPilotCarState.ButtonEvent.Type
@@ -59,6 +60,8 @@ class FrogPilotCard:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance:
       self.pause_longitudinal = not self.pause_longitudinal
+    elif self.car.frogpilot_toggles.debug_dump_via_distance:
+      trigger_drift_debug_dump()
     elif sm["carControl"].longActive and self.car.frogpilot_toggles.traffic_mode_via_distance:
       self.traffic_mode_enabled = not self.traffic_mode_enabled
 
@@ -77,6 +80,8 @@ class FrogPilotCard:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance_long:
       self.pause_longitudinal = not self.pause_longitudinal
+    elif self.car.frogpilot_toggles.debug_dump_via_distance_long:
+      trigger_drift_debug_dump()
     elif sm["carControl"].longActive and self.car.frogpilot_toggles.traffic_mode_via_distance_long:
       self.traffic_mode_enabled = not self.traffic_mode_enabled
 
@@ -97,6 +102,8 @@ class FrogPilotCard:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_distance_very_long:
       self.pause_longitudinal = not self.pause_longitudinal
+    elif self.car.frogpilot_toggles.debug_dump_via_distance_very_long:
+      trigger_drift_debug_dump()
     elif sm["carControl"].longActive and self.car.frogpilot_toggles.traffic_mode_via_distance_very_long:
       self.traffic_mode_enabled = not self.traffic_mode_enabled
 
@@ -109,6 +116,8 @@ class FrogPilotCard:
       self.pause_lateral = not self.pause_lateral
     elif self.car.frogpilot_toggles.pause_longitudinal_via_lkas:
       self.pause_longitudinal = not self.pause_longitudinal
+    elif self.car.frogpilot_toggles.debug_dump_via_lkas:
+      trigger_drift_debug_dump()
     elif sm["carControl"].longActive and self.car.frogpilot_toggles.traffic_mode_via_lkas:
       self.traffic_mode_enabled = not self.traffic_mode_enabled
 

@@ -22,7 +22,8 @@ FrogPilotWheelPanel::FrogPilotWheelPanel(FrogPilotSettingsWindow *parent) : Frog
       {0, tr("No Action")},
       {3, tr("Pause Steering")},
       {7, tr("Force Disable openpilot")},
-      {8, tr("Restart openpilot")}
+      {8, tr("Restart openpilot")},
+      {9, tr("Drift Debug Snapshot")}
     };
 
     QMap<int, QString> longitudinalFunctionsMap {
