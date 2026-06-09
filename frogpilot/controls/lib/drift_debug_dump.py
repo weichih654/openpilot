@@ -22,12 +22,45 @@ DEBUG_DUMP_DIR = Path(Paths.log_root()) / "drift_debug"
 # 需要訂閱的 cereal services
 SERVICES = [
   'liveParameters', 'liveTorqueParameters', 'liveLocationKalman',
-  'carState', 'controlsState', 'carOutput',
+  'liveCalibration', 'carState', 'controlsState', 'carOutput',
+  'frogpilotPlan', 'frogpilotCarState',
+  'onroadEvents', 'frogpilotOnroadEvents',
+  # raw IMU — 繞過 locationd 可能被凍住的 angVelCalib
+  'gyroscope', 'accelerometer',
 ]
 
 # 等待訊息抵達的設定：每次 poll 100ms，最多 20 次（~2s）
 _POLL_TIMEOUT_MS = 100
 _MAX_POLLS = 20
+
+
+def _sensor_block(msg):
+  """SensorEventData (union: gyro / gyroUncalibrated / acceleration / ...) → dict。"""
+  which = msg.which()
+  out = {"which": which, "timestamp": msg.timestamp, "source": str(msg.source)}
+  variant = getattr(msg, which, None)
+  if variant is not None and hasattr(variant, 'v'):
+    out["v"] = list(variant.v)
+    out["status"] = variant.status
+  return out
+
+
+def _messaging_stats(sm):
+  """各 service 的 SubMaster 即時統計 — alive/valid/freq、最後一筆訊息間隔。"""
+  out = {}
+  for s in SERVICES:
+    dts = list(sm.recv_dts.get(s, ()))
+    out[s] = {
+      "alive":          sm.alive.get(s),
+      "valid":          sm.valid.get(s),
+      "logMonoTimeNs":  sm.logMonoTime.get(s),
+      "recvFrame":      sm.recv_frame.get(s),
+      "recvDtCount":    len(dts),
+      "recvDtMean":     (sum(dts) / len(dts)) if dts else None,
+      "recvDtMin":      min(dts) if dts else None,
+      "recvDtMax":      max(dts) if dts else None,
+    }
+  return out
 
 
 def _capture(sm):
@@ -38,6 +71,9 @@ def _capture(sm):
 
   return {
     "trigger_time": datetime.now().isoformat(),
+
+    # 各 service 的訊息健康度（alive/valid/freq）— 判斷 paramsd all_checks 哪個 gate 失敗
+    "messaging": _messaging_stats(sm),
 
     # 最核心：paramsd 的 angleOffset，飄移時懷疑此值跑偏
     "liveParameters": {
@@ -50,6 +86,8 @@ def _capture(sm):
       "roll":                  sm['liveParameters'].roll,
       "valid":                 sm['liveParameters'].valid,
       "sensorValid":           sm['liveParameters'].sensorValid,
+      # paramsd L225 hardcode 為 True — 留著當對照
+      "posenetValid":          sm['liveParameters'].posenetValid,
     },
 
     # torqued 的線上學習結果
@@ -63,23 +101,49 @@ def _capture(sm):
       "useParams":                   sm['liveTorqueParameters'].useParams,
     },
 
-    # locationd 品質指標（GPS 中斷時 posenetOK 會變 False）
+    # locationd 品質指標 — 用來判斷 status=uninitialized 的根因
     "liveLocationKalman": {
-      "posenetOK":   sm['liveLocationKalman'].posenetOK,
-      "status":      str(sm['liveLocationKalman'].status),
-      "angVelCalib": list(sm['liveLocationKalman'].angularVelocityCalibrated.value),
+      "posenetOK":        sm['liveLocationKalman'].posenetOK,
+      "status":           str(sm['liveLocationKalman'].status),
+      "inputsOK":         sm['liveLocationKalman'].inputsOK,
+      "gpsOK":            sm['liveLocationKalman'].gpsOK,
+      "sensorsOK":        sm['liveLocationKalman'].sensorsOK,
+      "deviceStable":     sm['liveLocationKalman'].deviceStable,
+      "excessiveResets":  sm['liveLocationKalman'].excessiveResets,
+      "timeSinceReset":   sm['liveLocationKalman'].timeSinceReset,
+      # positionECEF.std 大於 50m 就會讓 status 變 UNINITIALIZED
+      "positionECEFStd":  list(sm['liveLocationKalman'].positionECEF.std),
+      "positionECEFValid":sm['liveLocationKalman'].positionECEF.valid,
+      "orientationNEDStd":list(sm['liveLocationKalman'].calibratedOrientationNED.std),
+      "angVelCalib":      list(sm['liveLocationKalman'].angularVelocityCalibrated.value),
     },
 
-    # 車輛當下狀態
+    # 校準狀態（controlsd 用來閘 lateral）
+    "liveCalibration": {
+      "calStatus": str(sm['liveCalibration'].calStatus),
+      "calPerc":   sm['liveCalibration'].calPerc,
+    },
+
+    # 車輛當下狀態（含 paramsd.self.active 計算用到的 aEgo / steeringRateDeg）
+    # 在 Mazda+TI 上 carState.steeringTorque 是 TI 硬體的 TI_TORQUE_SENSOR 讀值
     "carState": {
       "steeringAngleDeg": sm['carState'].steeringAngleDeg,
       "vEgo":             sm['carState'].vEgo,
       "steeringPressed":  sm['carState'].steeringPressed,
+      "aEgo":             sm['carState'].aEgo,
+      "steeringRateDeg":  sm['carState'].steeringRateDeg,
+      "steeringTorque":   sm['carState'].steeringTorque,     # Mazda+TI: TI_TORQUE_SENSOR
+      "steeringTorqueEps":sm['carState'].steeringTorqueEps,  # EPS 實際輸出扭矩
+      "yawRate":          sm['carState'].yawRate,            # 車輛 CAN 上的 yaw rate
     },
 
-    # 控制器輸出
+    # 控制器輸出 + 當前 alert（鎖定為什麼 latActive=False）
     "controlsState": {
+      "state":            str(cs.state),
+      "enabled":          cs.enabled,
       "latActive":        cs.active,
+      "alertText1":       cs.alertText1,
+      "alertText2":       cs.alertText2,
       "desiredCurvature": cs.desiredCurvature,
       "latStateWhich":    lat_state.which(),
       "torqueError":      torque_state.error               if torque_state else None,
@@ -91,6 +155,43 @@ def _capture(sm):
     "carOutput": {
       "steer": sm['carOutput'].actuatorsOutput.steer,
     },
+
+    # 當下 fire 中的 events — 最精準告訴你為什麼 latActive=False
+    "onroadEvents": [
+      {
+        "name":             str(e.name),
+        "noEntry":          e.noEntry,
+        "softDisable":      e.softDisable,
+        "immediateDisable": e.immediateDisable,
+        "userDisable":      e.userDisable,
+        "warning":          e.warning,
+        "permanent":        e.permanent,
+      } for e in sm['onroadEvents']
+    ],
+    "frogpilotOnroadEvents": [
+      {"name": str(e.name)} for e in sm['frogpilotOnroadEvents']
+    ],
+
+    # FrogPilot 自己的橫向 gate
+    "frogpilotPlan": {
+      "lateralCheck": sm['frogpilotPlan'].lateralCheck,
+    },
+    "frogpilotCarState": {
+      "alwaysOnLateralEnabled": sm['frogpilotCarState'].alwaysOnLateralEnabled,
+      "pauseLateral":           sm['frogpilotCarState'].pauseLateral,
+      # Mazda TI 硬體狀態（非 Mazda / 無 TI 車種會是預設 0/False）
+      "tiState":         sm['frogpilotCarState'].tiState,
+      "tiViolation":     sm['frogpilotCarState'].tiViolation,
+      "tiError":         sm['frogpilotCarState'].tiError,
+      "tiRampDown":      sm['frogpilotCarState'].tiRampDown,
+      "tiLkasAllowed":   sm['frogpilotCarState'].tiLkasAllowed,
+      "tiVersion":       sm['frogpilotCarState'].tiVersion,
+    },
+
+    # 原始 IMU — locationd 凍住時，這裡是車身運動的 ground truth
+    # SensorEventData 是 union；用 which() 區分 gyro / gyroUncalibrated
+    "gyroscope": _sensor_block(sm['gyroscope']),
+    "accelerometer": _sensor_block(sm['accelerometer']),
   }
 
 

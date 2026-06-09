@@ -129,6 +129,14 @@ struct FrogPilotCarState @0xda96579883444c35 {
   sportGear @14 :Bool;
   trafficModeEnabled @15 :Bool;
 
+  # Mazda TI (Torque Interceptor) hardware diagnostic
+  tiState @16 :UInt8;          # 0=DISCOVER 1=OFF 2=DRIVER_OVER 3=RUN
+  tiViolation @17 :UInt8;      # 0 = no violation
+  tiError @18 :UInt8;          # 0 = no error
+  tiRampDown @19 :Bool;
+  tiLkasAllowed @20 :Bool;
+  tiVersion @21 :UInt8;
+
   struct ButtonEvent {
     enum Type {
       lkas @0;

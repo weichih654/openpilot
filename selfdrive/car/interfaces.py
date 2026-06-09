@@ -347,6 +347,15 @@ class CarInterfaceBase(ABC):
     fp_ret.ecoGear |= ret.gearShifter == GearShifter.eco
     fp_ret.sportGear |= ret.gearShifter == GearShifter.sport
 
+    # Mazda TI hardware diagnostic — populated only when self.CS has ti_* attrs (mazda)
+    if hasattr(self.CS, "ti_state"):
+      fp_ret.tiState        = int(self.CS.ti_state)
+      fp_ret.tiViolation    = int(self.CS.ti_violation)
+      fp_ret.tiError        = int(self.CS.ti_error)
+      fp_ret.tiRampDown     = bool(self.CS.ti_ramp_down)
+      fp_ret.tiLkasAllowed  = bool(self.CS.ti_lkas_allowed)
+      fp_ret.tiVersion      = int(self.CS.ti_version)
+
     # copy back for next iteration
     if self.CS is not None:
       self.CS.out = ret.as_reader()
