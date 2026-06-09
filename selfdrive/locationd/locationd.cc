@@ -560,7 +560,12 @@ void Localizer::reset_kalman(double current_time) {
 }
 
 void Localizer::finite_check(double current_time) {
-  bool all_finite = this->kf->get_x().array().isFinite().all() or this->kf->get_P().array().isFinite().all();
+  // Drift-debug fix (A): upstream wrote `or` here, which meant the guard only
+  // tripped when BOTH x and P went non-finite. We saw P go to NaN
+  // (positionECEFStd=NaN in drift_debug snapshots) while x stayed finite —
+  // status then sticks at UNINITIALIZED forever because NaN < VALID_POS_STD
+  // and NaN > SANE_GPS_UNCERTAINTY are both false, so no recovery path fires.
+  bool all_finite = this->kf->get_x().array().isFinite().all() and this->kf->get_P().array().isFinite().all();
   if (!all_finite) {
     LOGE("Non-finite values detected, kalman reset");
     this->reset_kalman(current_time);
@@ -772,6 +777,14 @@ int Localizer::locationd_thread() {
       bool inputsOK = sm.allValid() && this->are_inputs_ok();
       bool gpsOK = this->is_gps_ok();
       bool sensorsOK = sm.allAliveAndValid({"accelerometer", "gyroscope"});
+
+      // Drift-debug fix (A): keep pos_std bounded while GPS is absent.
+      // Existing determine_gps_mode only inputs fake obs once pos_std > 1500m,
+      // leaving a 50–1500m "stuck zone" where pos_std drifts up freely and
+      // status pins at UNINITIALIZED. Run fake obs every tick without GPS.
+      if (filterInitialized && !gpsOK) {
+        this->input_fake_gps_observations(this->kf->get_filter_time());
+      }
 
       // Log time to first fix
       if (gpsOK && std::isnan(this->ttff) && !std::isnan(this->first_valid_log_time)) {
