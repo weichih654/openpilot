@@ -153,7 +153,6 @@ class Controls:
     self.cruise_mismatch_counter = 0
     self.last_blinker_frame = 0
     self.last_steering_pressed_frame = 0
-    self.distance_traveled = 0
     self.last_functional_fan_frame = 0
     self.events_prev = []
     self.current_alert_types = [ET.PERMANENT]
@@ -438,12 +437,10 @@ class Controls:
 
     # TODO: fix simulator
     if not SIMULATION or REPLAY:
-      # Not show in first 1 km to allow for driving out of garage. This event shows after 5 minutes
-      if not self.sm['liveLocationKalman'].gpsOK and self.sm['liveLocationKalman'].inputsOK and (self.distance_traveled > 1500):
-        self.events.add(EventName.noGps)
-      if self.sm['liveLocationKalman'].gpsOK:
-        self.distance_traveled = 0
-      self.distance_traveled += CS.vEgo * DT_CTRL
+      # Drift-debug fix (B): locationd no longer subscribes to GPS, so gpsOK is
+      # permanently false and this alert would show on every drive after 1.5 km.
+      # GPS is out of the control chain entirely; drop the alert like upstream
+      # did in the 0.9.8 no-GPS rewrite.
 
       if self.sm['modelV2'].frameDropPerc > 20:
         self.events.add(EventName.modeldLagging)
